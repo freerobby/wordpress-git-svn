@@ -26,11 +26,11 @@ Install ruby dependencies:
 
 If your plugin were called "artpal", here's how you'd set up its workspace.
 
-    rake plugins:convert_to_git:prepare[artpal]
+    rake plugins:prepare_import[artpal]
     
 This will query the subversion server and create a ./workspaces/artpal/authors.txt file containing a list of svn authors in the format `svn_user = name <email>`. Update these email addresses to reflect the github addresses of anybody you know in the file. This will map the git/svn author histories. Once complete, run:
 
-    rake plugins:convert_to_git:run[artpal]
+    rake plugins:run_import[artpal]
 
 This will take a while -- at least a few minutes, possibly a few hours. The reason for this is that the wordpress.org plugin repo is one gigantic SVN repository, and wordpress-git-svn has to cull through every single commit between when your repo was created and its last commit.
 
