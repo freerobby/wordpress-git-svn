@@ -9,11 +9,9 @@ namespace :plugins do
   task :prepare_import, :plugin_name do |t, args|
     raise "Must specify name of plugin" if args[:plugin_name].nil?
     
-    # Create git/svn directories
+    # Create workflow directory
     workflow_dir = File.join(WORKFLOWS_DIR, args[:plugin_name])
-    git_dir = File.join(WORKFLOWS_DIR, args[:plugin_name], "#{args[:plugin_name]}-git")
-    svn_dir = File.join(WORKFLOWS_DIR, args[:plugin_name], "#{args[:plugin_name]}-svn")
-    FileUtils.mkdir_p workflow_dir
+    FileUtils.mkdir_p workflow_dir, :mode => 0775
     
     # Look at log for first revision
     puts "Locating first revision for plugin: #{args[:plugin_name]}. This may take a minute."
@@ -64,10 +62,41 @@ namespace :plugins do
     `git --git-dir=#{git_dir}/.git merge remotes/trunk`
     `git svn rebase`
     puts ""
-    
-    # You can run `git update-ref refs/remotes/git-svn refs/remotes/origin/master` if histories don't match.
-    
-    puts "Git repository generated. You may use it locally or push it to github, if you like."
+        
+    puts "Git repository generated. Enjoy using your git workflow of choice!"
     puts ""
+  end
+  
+  desc "Deploy your code to Wordpress!"
+  task :deploy, :plugin_name, :new_version do |t, args|
+    raise "Must specify name of plugin" if args[:plugin_name].nil?
+    raise "Must specify verion to deploy" if args[:new_version].nil?
+    
+    git_dir = File.join(WORKFLOWS_DIR, args[:plugin_name], "#{args[:plugin_name]}-git")
+    
+    current_branch=`git --git-dir=#{git_dir}/.git branch --no-color 2> /dev/null | sed -e '/^[^*]/d' -e 's/* \\(.*\\)/\\1/'`.strip
+    raise "You must be on branch master to deploy. You are on #{current_branch}" unless current_branch == "master"
+    
+    readme_path = File.join(WORKFLOWS_DIR, args[:plugin_name], "#{args[:plugin_name]}-git", "readme.txt")
+    raise "Your wordpress plugin does not contain a readme.txt. This is required for listings on wordpress.org." unless File.exists?(readme_path)
+    
+    # Check "Requires at least"
+    required_version = `grep "Requires at least" #{readme_path} | awk '{print $4}'`.strip.to_f
+    raise "You must specify a 'Requires at least' version of Wordpress in your readme.txt." if required_version.to_f == 0.0
+    
+    # Check "Tested up to"
+    tested_version = `grep "Tested up to" #{readme_path} | awk '{print $4}'`.strip.to_f
+    raise "You must specify a 'Tested up to' version of Wordpress in your readme.txt." if tested_version.to_f == 0.0
+    
+    # Check "Stable tag"
+    stable_tag = `grep "Stable tag" #{readme_path} | awk '{print $3}'`.strip
+    raise "You must specify a 'Stable tag' in your readme.txt." if stable_tag == ""
+    raise "Your stable tag (#{stable_tag}) must match the version you are attempting to deploy (#{args[:new_version]})" if stable_tag != args[:new_version]
+    
+    puts "Committing changes to subversion."
+    puts `git --git-dir=#{git_dir}/.git svn rebase`
+    puts `git --git-dir=#{git_dir}/.git svn dcommit`
+    puts ""
+    
   end
 end
